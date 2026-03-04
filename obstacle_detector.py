@@ -1,39 +1,34 @@
-
-import RPi.GPIO as GPIO
+from gpiozero import InputDevice
 import time
-from main import scan  # Import scan() function from scanner.py
+from main import scan
+from motorHandler import open_left, open_right
 
-# CONFIG
-IR_PIN = 17  # GPIO pin connected to Obstacle IR sensor
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(IR_PIN, GPIO.IN)  # IR sensor output: HIGH=no object, LOW=object detected
+IR_PIN = 17
+sensor = InputDevice(IR_PIN)
 
-print("Monitoring IR sensor...")
+scanning = False
 
 try:
-    scanning = False  # Flag to indicate if scan is in progress
-
     while True:
-        if not scanning:  # Only check sensor if not scanning
-            sensor_state = GPIO.input(IR_PIN)
-            if sensor_state == 0:  # Object detected
-                scanning = True  # Set flag
-                print("Object detected! Starting scan...")
+        if not scanning and not sensor.is_active:  # Obstacle detected
+            scanning = True
+            print("Obstacle detected! Starting scan...")
+            
+            tag, conf = scan()
+            
+            if tag is not None:
+                print(f"Predicted tag: {tag} ({conf:.2f}%)")
                 
-                # Run the scan
-                tag, conf = scan()
-                
-                if tag is not None:
-                    print(f"Predicted tag: {tag} ({conf:.2f}%)")
+                if tag == "Biodegradable":
+                    open_left()
                 else:
-                    print("Scan failed.")
+                    open_right()
+                    
+            else:
+                print("Scan failed.")
                 
-                scanning = False  # Reset flag to allow next detection
-        # Small delay to reduce CPU usage
+            scanning = False
         time.sleep(0.05)
 
 except KeyboardInterrupt:
     print("Exiting...")
-
-finally:
-    GPIO.cleanup()
